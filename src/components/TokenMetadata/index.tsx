@@ -1,366 +1,60 @@
-import React, { useState, useEffect } from 'react';
-import { 
-    Box, 
-    VStack, 
-    Input,
-    Button, 
-    FormControl, 
-    FormLabel,
-    Checkbox,
-    useToast,
-    Tabs,
-    TabList,
-    Tab,
-    TabPanels,
-    TabPanel
-} from '@chakra-ui/react';
+import { AppError, message as msg, describeError } from '../../i18n/message';
+import { useT, useMessageState } from '../../i18n/useT';
+import { useWorkspaceOperation } from '../learning/LearningContext';
+import { Metadata, createCreateMetadataAccountV3Instruction, createUpdateMetadataAccountV2Instruction } from '@metaplex-foundation/mpl-token-metadata';
+import { getMint } from '@solana/spl-token';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
-import { 
-    createCreateMetadataAccountV3Instruction,
-    createUpdateMetadataAccountV2Instruction,
-    PROGRAM_ID as TOKEN_METADATA_PROGRAM_ID,
-} from '@metaplex-foundation/mpl-token-metadata';
 import { PublicKey, Transaction } from '@solana/web3.js';
+import { useEffect, useState } from 'react';
+import { metadataAddress, validateMetadata } from '../../lib/solana/metadata';
+import { executeTransaction } from '../../lib/solana/transactions';
+import { useTransactionFeedback } from '../common/TransactionFeedback';
+import { MetadataView } from './MetadataView';
 
 interface TokenMetadataProps {
-    mintAddress: string;
-    name: string;
-    symbol: string;
-    uri: string;
-    setMintAddress: (value: string) => void;
-    setName: (value: string) => void;
-    setSymbol: (value: string) => void;
-    setUri: (value: string) => void;
-    defaultTabIndex: number;
+    mintAddress: string; name: string; symbol: string; uri: string;
+    setMintAddress: (value: string) => void; setName: (value: string) => void;
+    setSymbol: (value: string) => void; setUri: (value: string) => void; defaultTabIndex: number;
 }
-
-// 将 MetadataForm 抽离为独立组件
-const MetadataForm = React.memo(({ 
-    mintAddress,
-    name,
-    symbol,
-    uri,
-    setMintAddress,
-    setName,
-    setSymbol,
-    setUri,
-    allowUpdate,
-    setAllowUpdate,
-    isLoading,
-    onSubmit,
-    buttonText 
-}: {
-    mintAddress: string;
-    name: string;
-    symbol: string;
-    uri: string;
-    setMintAddress: (value: string) => void;
-    setName: (value: string) => void;
-    setSymbol: (value: string) => void;
-    setUri: (value: string) => void;
-    allowUpdate: boolean;
-    setAllowUpdate: (value: boolean) => void;
-    isLoading: boolean;
-    onSubmit: () => Promise<void>;
-    buttonText: string;
-}) => (
-    <VStack spacing={4} align="stretch">
-        <FormControl isRequired>
-            <FormLabel>代币地址</FormLabel>
-            <Input 
-                value={mintAddress}
-                onChange={(e) => setMintAddress(e.target.value)}
-                placeholder="输入代币地址"
-            />
-        </FormControl>
-
-        <FormControl isRequired>
-            <FormLabel>代币名称</FormLabel>
-            <Input 
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="输入代币名称"
-            />
-        </FormControl>
-
-        <FormControl isRequired>
-            <FormLabel>代币符号</FormLabel>
-            <Input 
-                value={symbol}
-                onChange={(e) => setSymbol(e.target.value)}
-                placeholder="输入代币符号"
-            />
-        </FormControl>
-
-        <FormControl>
-            <FormLabel>
-                元数据 URI（
-                <a href="https://ipfs.io" target="_blank" rel="noopener noreferrer" style={{color: 'blue', textDecoration: 'underline'}}>IPFS</a>
-                {' | '}
-                <a href="https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png" target="_blank" rel="noopener noreferrer" style={{color: 'blue', textDecoration: 'underline'}}>元数据模版</a>
-                ）
-            </FormLabel>
-            <Input 
-                value={uri}
-                onChange={(e) => setUri(e.target.value)}
-                placeholder="输入元数据 URI（可选）"
-            />
-        </FormControl>
-
-        <Checkbox 
-            isChecked={allowUpdate} 
-            onChange={(e) => setAllowUpdate(e.target.checked)}
-        >
-            允许后续修改元数据
-        </Checkbox>
-
-        <Button
-            colorScheme="purple"
-            onClick={onSubmit}
-            isLoading={isLoading}
-            loadingText="处理中..."
-            isDisabled={!mintAddress || !name || !symbol}
-        >
-            {buttonText}
-        </Button>
-    </VStack>
-));
-
-export const TokenMetadata = ({
-    mintAddress,
-    name,
-    symbol,
-    uri,
-    setMintAddress,
-    setName,
-    setSymbol,
-    setUri,
-    defaultTabIndex
-}: TokenMetadataProps) => {
+export const TokenMetadata = (props: TokenMetadataProps) => {
+    const t = useT();
     const { connection } = useConnection();
     const { publicKey, signTransaction } = useWallet();
-    const [isLoading, setIsLoading] = useState(false);
+    const [busy, setBusy] = useState(false);
     const [allowUpdate, setAllowUpdate] = useState(true);
-    const toast = useToast();
-    const [tabIndex, setTabIndex] = useState(defaultTabIndex);
-
-    // 当 defaultTabIndex 改变时更新 tabIndex
-    useEffect(() => {
-        setTabIndex(defaultTabIndex);
-    }, [defaultTabIndex]);
-
-    // 获取元数据账户地址
-    const getMetadataAddress = (mintPubkey: PublicKey) => {
-        const [metadataAddress] = PublicKey.findProgramAddressSync(
-            [
-                Buffer.from('metadata'),
-                TOKEN_METADATA_PROGRAM_ID.toBuffer(),
-                mintPubkey.toBuffer(),
-            ],
-            TOKEN_METADATA_PROGRAM_ID
-        );
-        return metadataAddress;
-    };
-
-    const handleCreateMetadata = async () => {
-        if (!publicKey || !signTransaction) {
-            toast({
-                title: "错误",
-                description: "请先连接钱包",
-                status: "error",
-                duration: 3000,
-            });
-            return;
-        }
-
+    const [mode, setMode] = useState(props.defaultTabIndex);
+    const [error, setError] = useMessageState();
+    const [result, setResult] = useState<{ mint: string; name: string; symbol: string; mutable: boolean } | null>(null);
+    const { updates, onUpdate } = useTransactionFeedback();
+    const workspaceOperation = useWorkspaceOperation('metadata');
+    useEffect(() => { setMode(props.defaultTabIndex); }, [props.defaultTabIndex]);
+    const submit = async () => {
+        if (!publicKey || !signTransaction || busy) return;
+        if (!workspaceOperation.begin()) return;
+        setBusy(true); setError('');
         try {
-            setIsLoading(true);
-
-            // 验证代币地址
-            const mintPubkey = new PublicKey(mintAddress);
-            const metadataAddress = getMetadataAddress(mintPubkey);
-
-            // 创建元数据指令
-            const instruction = createCreateMetadataAccountV3Instruction(
-                {
-                    metadata: metadataAddress,
-                    mint: mintPubkey,
-                    mintAuthority: publicKey,
-                    payer: publicKey,
-                    updateAuthority: publicKey,
-                },
-                {
-                    createMetadataAccountArgsV3: {
-                        data: {
-                            name,
-                            symbol,
-                            uri,
-                            sellerFeeBasisPoints: 0,
-                            creators: null,
-                            collection: null,
-                            uses: null,
-                        },
-                        isMutable: allowUpdate,
-                        collectionDetails: null,
-                    },
-                }
-            );
-
-            // 创建交易
-            const transaction = new Transaction().add(instruction);
-            
-            // 获取最新的 blockhash
-            const { blockhash } = await connection.getLatestBlockhash();
-            transaction.recentBlockhash = blockhash;
-            transaction.feePayer = publicKey;
-
-            // 用户签名交易
-            const signedTx = await signTransaction(transaction);
-            const signature = await connection.sendRawTransaction(signedTx.serialize());
-            await connection.confirmTransaction(signature, 'confirmed');
-
-            toast({
-                title: "成功",
-                description: `代币元数据创建成功！\n名称: ${name}\n符号: ${symbol}`,
-                status: "success",
-                duration: 5000,
-                isClosable: true,
-            });
-
-        } catch (error) {
-            console.error("创建元数据错误:", error);
-            toast({
-                title: "错误",
-                description: "创建元数据失败: " + (error as Error).message,
-                status: "error",
-                duration: 3000,
-            });
-        } finally {
-            setIsLoading(false);
-        }
+            validateMetadata(props.name, props.symbol, props.uri);
+            const mint = new PublicKey(props.mintAddress);
+            const metadata = metadataAddress(mint);
+            let transaction: Transaction;
+            if (mode === 0) {
+                const info = await getMint(connection, mint);
+                if (!info.mintAuthority?.equals(publicKey)) throw new AppError(msg("TokenMetadata.thisWalletHasNoMintAuthorityAndCannotCreate"));
+                transaction = new Transaction().add(createCreateMetadataAccountV3Instruction({ metadata, mint, mintAuthority: publicKey, payer: publicKey, updateAuthority: publicKey }, {
+                    createMetadataAccountArgsV3: { data: { name: props.name, symbol: props.symbol, uri: props.uri, sellerFeeBasisPoints: 0, creators: null, collection: null, uses: null }, isMutable: allowUpdate, collectionDetails: null }
+                }));
+            } else {
+                const existing = await Metadata.fromAccountAddress(connection, metadata);
+                if (!existing.updateAuthority.equals(publicKey)) throw new AppError(msg("TokenMetadata.thisWalletHasNoMetadataUpdateAuthority"));
+                if (!existing.isMutable) throw new AppError(msg("TokenMetadata.metadataIsPermanentlyLocked"));
+                transaction = new Transaction().add(createUpdateMetadataAccountV2Instruction({ metadata, updateAuthority: publicKey }, {
+                    updateMetadataAccountArgsV2: { data: { name: props.name, symbol: props.symbol, uri: props.uri, sellerFeeBasisPoints: existing.data.sellerFeeBasisPoints, creators: existing.data.creators, collection: existing.collection, uses: existing.uses }, updateAuthority: publicKey, primarySaleHappened: null, isMutable: allowUpdate }
+                }));
+            }
+            await executeTransaction(connection, { publicKey, signTransaction }, transaction, [], onUpdate);
+            setResult({ mint: mint.toBase58(), name: props.name, symbol: props.symbol, mutable: allowUpdate });
+        } catch (cause) { setError(cause); }
+        finally { setBusy(false); workspaceOperation.end(); }
     };
-
-    const handleUpdateMetadata = async () => {
-        if (!publicKey || !signTransaction) {
-            toast({
-                title: "错误",
-                description: "请先连接钱包",
-                status: "error",
-                duration: 3000,
-            });
-            return;
-        }
-
-        try {
-            setIsLoading(true);
-
-            // 验证代币地址
-            const mintPubkey = new PublicKey(mintAddress);
-            const metadataAddress = getMetadataAddress(mintPubkey);
-
-            // 创建更新元数据指令
-            const instruction = createUpdateMetadataAccountV2Instruction(
-                {
-                    metadata: metadataAddress,
-                    updateAuthority: publicKey,
-                },
-                {
-                    updateMetadataAccountArgsV2: {
-                        data: {
-                            name,
-                            symbol,
-                            uri,
-                            sellerFeeBasisPoints: 0,
-                            creators: null,
-                            collection: null,
-                            uses: null,
-                        },
-                        updateAuthority: publicKey,
-                        primarySaleHappened: null,
-                        isMutable: allowUpdate,
-                    },
-                }
-            );
-
-            // 创建交易
-            const transaction = new Transaction().add(instruction);
-            
-            // 获取最新的 blockhash
-            const { blockhash } = await connection.getLatestBlockhash();
-            transaction.recentBlockhash = blockhash;
-            transaction.feePayer = publicKey;
-
-            // 用户签名交易
-            const signedTx = await signTransaction(transaction);
-            const signature = await connection.sendRawTransaction(signedTx.serialize());
-            await connection.confirmTransaction(signature, 'confirmed');
-
-            toast({
-                title: "成功",
-                description: `代币元数据更新成功！\n名称: ${name}\n符号: ${symbol}`,
-                status: "success",
-                duration: 5000,
-                isClosable: true,
-            });
-
-        } catch (error) {
-            console.error("更新元数据错误:", error);
-            toast({
-                title: "错误",
-                description: "更新元数据失败: " + (error as Error).message,
-                status: "error",
-                duration: 3000,
-            });
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    return (
-        <Box p={4}>
-            <Tabs index={tabIndex} onChange={setTabIndex}>
-                <TabList>
-                    <Tab>创建元数据</Tab>
-                    <Tab>修改元数据</Tab>
-                </TabList>
-
-                <TabPanels>
-                    <TabPanel>
-                        <MetadataForm 
-                            mintAddress={mintAddress}
-                            name={name}
-                            symbol={symbol}
-                            uri={uri}
-                            setMintAddress={setMintAddress}
-                            setName={setName}
-                            setSymbol={setSymbol}
-                            setUri={setUri}
-                            allowUpdate={allowUpdate}
-                            setAllowUpdate={setAllowUpdate}
-                            isLoading={isLoading}
-                            onSubmit={handleCreateMetadata}
-                            buttonText="创建元数据"
-                        />
-                    </TabPanel>
-                    <TabPanel>
-                        <MetadataForm 
-                            mintAddress={mintAddress}
-                            name={name}
-                            symbol={symbol}
-                            uri={uri}
-                            setMintAddress={setMintAddress}
-                            setName={setName}
-                            setSymbol={setSymbol}
-                            setUri={setUri}
-                            allowUpdate={allowUpdate}
-                            setAllowUpdate={setAllowUpdate}
-                            isLoading={isLoading}
-                            onSubmit={handleUpdateMetadata}
-                            buttonText="更新元数据"
-                        />
-                    </TabPanel>
-                </TabPanels>
-            </Tabs>
-        </Box>
-    );
-}; 
+    return <MetadataView mint={props.mintAddress} name={props.name} symbol={props.symbol} uri={props.uri} mode={mode} allowUpdate={allowUpdate} busy={busy} error={error} result={result} updates={updates} onMintChange={props.setMintAddress} onNameChange={props.setName} onSymbolChange={props.setSymbol} onUriChange={props.setUri} onModeChange={setMode} onAllowUpdateChange={setAllowUpdate} onSubmit={submit} />;
+};

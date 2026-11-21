@@ -1,372 +1,69 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import {
-    Modal,
-    ModalOverlay,
-    ModalContent,
-    ModalHeader,
-    ModalCloseButton,
-    ModalBody,
-    Input,
-    VStack,
-    HStack,
-    Text,
-    Image,
-    Box,
-    Flex,
-    InputGroup,
-    InputLeftElement,
-    Divider,
-    useColorModeValue,
-    Spinner,
-    Center
-} from '@chakra-ui/react';
-import { FaSearch } from 'react-icons/fa';
-import { useConnection, useWallet } from '@solana/wallet-adapter-react';
+import { useT, useMessageState } from '../../i18n/useT';
+import { Box,Button,HStack,Image,Input,Modal,ModalBody,ModalCloseButton,ModalContent,ModalHeader,ModalOverlay,Spinner,Text,VStack } from '@chakra-ui/react';
+import { NATIVE_MINT,getMint } from '@solana/spl-token';
+import { useConnection,useWallet } from '@solana/wallet-adapter-react';
 import { PublicKey } from '@solana/web3.js';
-import { 
-    TOKEN_PROGRAM_ID,
-    getAssociatedTokenAddress,
-    getAccount,
-} from '@solana/spl-token';
-import { TokenInfo } from './types';
-import { 
-    PROGRAM_ID as TOKEN_METADATA_PROGRAM_ID,
-    Metadata
-} from '@metaplex-foundation/mpl-token-metadata';
+import { useEffect,useMemo,useState } from 'react';
+import { useWalletTokens } from '../../hooks/useWalletTokens';
+import { type TokenInfo } from './types';
 
 interface TokenSelectModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSelect: (token: TokenInfo) => void;
-    excludeToken?: string; // 排除已选择的代币
+    excludeToken?: string;
 }
 
-export const TokenSelectModal: React.FC<TokenSelectModalProps> = ({
-    isOpen,
-    onClose,
-    onSelect,
-    excludeToken,
-}) => {
+// 打开时才挂载查询组件，避免隐藏选择框重复请求 RPC。
+export const TokenSelectModal = (props: TokenSelectModalProps) => {
+    const t = useT(); return (<Modal isOpen={props.isOpen} onClose={props.onClose} isCentered>
+    <ModalOverlay /><ModalContent><ModalHeader>{t("TokenSwap.selectInputOutputAsset")}</ModalHeader><ModalCloseButton aria-label={t("TokenSwap.closeAssetSelection")} />
+        <ModalBody pb={5}>{props.isOpen && <TokenOptions {...props} />}</ModalBody>
+    </ModalContent>
+</Modal>); };
+
+function TokenOptions({ onSelect, excludeToken }: TokenSelectModalProps) {
+    const t = useT();
     const { connection } = useConnection();
     const { publicKey } = useWallet();
-    const [searchTerm, setSearchTerm] = useState('');
-    const [tokens, setTokens] = useState<TokenInfo[]>([]);
-    const [filteredTokens, setFilteredTokens] = useState<TokenInfo[]>([]);
-    const [isLoading, setIsLoading] = useState(false);
-
-    // SOL 代币配置
-    const WSOL_MINT = 'So11111111111111111111111111111111111111112';
-    const SOL_TOKEN: TokenInfo = {
-        mint: WSOL_MINT,
-        symbol: 'SOL',
-        decimals: 9,
-        isNative: true,
-    };
-
-    // 获取元数据地址
-    const getMetadataAddress = (mint: PublicKey): PublicKey => {
-        const [metadataAddress] = PublicKey.findProgramAddressSync(
-            [
-                Buffer.from('metadata'),
-                TOKEN_METADATA_PROGRAM_ID.toBuffer(),
-                mint.toBuffer(),
-            ],
-            TOKEN_METADATA_PROGRAM_ID
-        );
-        return metadataAddress;
-    };
-
-    // 获取代币元数据
-    const fetchTokenMetadata = async (mintAddress: string) => {
+    const { tokens, solBalance, isLoading, error, refresh } = useWalletTokens(connection, publicKey);
+    const [search, setSearch] = useState('');
+    const [custom, setCustom] = useState<TokenInfo | null>(null);
+    const [lookupError, setLookupError] = useMessageState();
+    const [lookingUp, setLookingUp] = useState(false);
+    useEffect(() => { setCustom(null); setLookupError(''); }, [search, setLookupError]);
+    const options = useMemo(() => {
+        const all: TokenInfo[] = [
+            { mint: NATIVE_MINT.toBase58(), symbol: 'SOL', name: t("TokenSwap.nativeSolWrappedByTheSdkAsNeeded"), decimals: 9, isNative: true, balance: isLoading || error ? undefined : solBalance.toString() },
+            ...tokens.filter(token => token.mint !== NATIVE_MINT.toBase58()).map(token => ({ mint: token.mint, symbol: token.symbol || t("TokenList.unknownToken"), name: token.name || t("TokenList.unknownName"), decimals: token.decimals, balance: token.amount, icon: token.image }))
+        ];
+        if (custom && !all.some(token => token.mint === custom.mint)) all.push(custom);
+        return all.filter(token => token.mint !== excludeToken && `${token.mint} ${token.symbol} ${token.name}`.toLowerCase().includes(search.toLowerCase()));
+    }, [tokens, solBalance, excludeToken, search, custom, isLoading, error, t]);
+    const lookup = async () => {
+        const input = search;
+        setLookingUp(true);
         try {
-            const mintPubkey = new PublicKey(mintAddress);
-            const metadataAddress = getMetadataAddress(mintPubkey);
-            const metadataAccount = await connection.getAccountInfo(metadataAddress);
-            
-            if (metadataAccount) {
-                const metadata = Metadata.deserialize(metadataAccount.data)[0];
-                
-                // 获取 URI 中的图标信息
-                let icon: string | undefined;
-                try {
-                    let uri = metadata.data.uri;
-                    if (uri.startsWith('ipfs://')) {
-                        uri = `https://ipfs.io/ipfs/${uri.slice(7)}`;
-                    } else if (!uri.startsWith('http://') && !uri.startsWith('https://')) {
-                        //console.error('Invalid URI format');
-                        return;
-                    }
-                    const response = await fetch(uri);
-                    const json = await response.json();
-                    icon = json.image;
-                } catch (error) {
-                    console.error('获取代币图标失败:', error);
-                }
-
-                return {
-                    symbol: metadata.data.symbol,
-                    name: metadata.data.name,
-                    icon,
-                };
-            }
-        } catch (error) {
-            console.error('获取代币元数据失败:', error);
-        }
-        return null;
+            const mint = new PublicKey(input);
+            const info = await getMint(connection, mint);
+            // 输入改变会卸载本次结果的 key，按钮期间禁用输入避免覆盖。
+            setCustom({ mint: mint.toBase58(), decimals: info.decimals, symbol: `${input.slice(0, 4)}…${input.slice(-4)}` });
+        } catch (reason) { setLookupError(reason); }
+        finally { setLookingUp(false); }
     };
-
-    // 获取用户的代币列表
-    const fetchUserTokens = async () => {
-        if (!publicKey) return;
-
-        try {
-            setIsLoading(true);
-            
-            // 获取 SOL 余额
-            const solBalance = await connection.getBalance(publicKey);
-            const solBalanceInSol = solBalance / Math.pow(10, 9); // 转换为SOL单位
-
-            // 获取其他代币
-            const accounts = await connection.getParsedTokenAccountsByOwner(
-                publicKey,
-                { programId: TOKEN_PROGRAM_ID }
-            );
-
-            const tokenList = await Promise.all(
-                accounts.value
-                    .filter(({ account }) => {
-                        const mint = account.data.parsed.info.mint;
-                        // 排除wSOL代币，我们会单独添加原生SOL
-                        return mint !== excludeToken && 
-                               mint !== WSOL_MINT && 
-                               Number(account.data.parsed.info.tokenAmount.amount) > 0;
-                    })
-                    .map(async ({ account }) => {
-                        const mintAddress = account.data.parsed.info.mint;
-                        const { amount, decimals } = account.data.parsed.info.tokenAmount;
-                        
-                        // 获取代币元数据
-                        const metadata = await fetchTokenMetadata(mintAddress);
-                        
-                        return {
-                            mint: mintAddress,
-                            symbol: metadata?.symbol || mintAddress.slice(0, 6) + '...',
-                            name: metadata?.name,
-                            icon: metadata?.icon,
-                            balance: Number(amount) / Math.pow(10, decimals),
-                            decimals: decimals // 使用代币实际的精度
-                        } as TokenInfo;
-                    })
-            );
-
-            // 将原生SOL添加到列表开头，不添加wSOL
-            const finalTokens = [
-                {
-                    ...SOL_TOKEN,
-                    balance: solBalanceInSol // 使用SOL单位
-                },
-                ...tokenList.filter((token): token is TokenInfo => token !== null)
-            ];
-            
-            setTokens(finalTokens);
-        } catch (error) {
-            console.error('获取代币列表失败:', error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        if (isOpen) {
-            fetchUserTokens();
-        }
-    }, [isOpen, publicKey]);
-
-    // 在TokenSelectModal中添加过滤逻辑，确保没有重复的代币
-    const uniqueTokens = useMemo(() => {
-        const seen = new Set();
-        return tokens.filter(token => {
-            if (seen.has(token.mint)) {
-                return false;
-            }
-            seen.add(token.mint);
-            return true;
-        });
-    }, [tokens]);
-
-    // 搜索过滤逻辑
-    useEffect(() => {
-        if (!Array.isArray(uniqueTokens)) {
-            setFilteredTokens([]);
-            return;
-        }
-
-        if (!searchTerm) {
-            setFilteredTokens(
-                excludeToken
-                    ? uniqueTokens.filter(t => t.mint !== excludeToken)
-                    : uniqueTokens
-            );
-            return;
-        }
-
-        const filtered = uniqueTokens.filter(token => {
-            const searchable = `${token.symbol} ${token.name} ${token.mint}`.toLowerCase();
-            return searchable.includes(searchTerm.toLowerCase());
-        });
-
-        setFilteredTokens(
-            excludeToken
-                ? filtered.filter(t => t.mint !== excludeToken)
-                : filtered
-        );
-    }, [uniqueTokens, searchTerm, excludeToken]);
-
-    // 重置搜索
-    useEffect(() => {
-        if (isOpen) {
-            setSearchTerm('');
-        }
-    }, [isOpen]);
-
-    // 颜色模式变量
-    const bgColor = useColorModeValue('white', 'gray.800');
-    const borderColor = useColorModeValue('gray.200', 'gray.700');
-    const searchBgColor = useColorModeValue('gray.50', 'gray.700');
-    const hoverBgColor = useColorModeValue('gray.50', 'gray.700');
-    const textColor = useColorModeValue('gray.800', 'white');
-    const secondaryTextColor = useColorModeValue('gray.600', 'gray.400');
-
-    return (
-        <Modal isOpen={isOpen} onClose={onClose} isCentered size="md">
-            <ModalOverlay backdropFilter="blur(3px)" />
-            <ModalContent 
-                bg={bgColor} 
-                borderRadius="xl" 
-                boxShadow="xl"
-                overflow="hidden"
-                maxH="85vh"
-            >
-                <ModalHeader 
-                    borderBottomWidth="1px" 
-                    borderColor={borderColor}
-                    py={4}
-                >
-                    <Text fontSize="xl" fontWeight="bold" color={textColor}>
-                        选择代币
-                    </Text>
-                </ModalHeader>
-                <ModalCloseButton size="lg" top={3} right={3} />
-                
-                {/* 搜索框区域 */}
-                <Box p={4} bg={searchBgColor}>
-                    <InputGroup>
-                        <InputLeftElement pointerEvents="none" color={secondaryTextColor}>
-                            <FaSearch />
-                        </InputLeftElement>
-                        <Input
-                            placeholder="搜索代币名称、符号或地址"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            borderRadius="lg"
-                            fontSize="md"
-                            _focus={{
-                                borderColor: 'blue.400',
-                                boxShadow: '0 0 0 1px var(--chakra-colors-blue-400)'
-                            }}
-                        />
-                    </InputGroup>
-                </Box>
-                
-                {/* 代币列表 */}
-                <ModalBody p={0} maxH="400px" overflowY="auto">
-                    {isLoading ? (
-                        <Center py={10}>
-                            <VStack spacing={4}>
-                                <Spinner 
-                                    size="xl" 
-                                    thickness="4px"
-                                    speed="0.65s"
-                                    color="blue.500"
-                                />
-                                <Text color={secondaryTextColor}>
-                                    正在加载代币...
-                                </Text>
-                            </VStack>
-                        </Center>
-                    ) : filteredTokens.length > 0 ? (
-                        <VStack spacing={0} align="stretch" divider={<Divider />}>
-                            {filteredTokens.map((token) => (
-                                <Flex
-                                    key={token.mint}
-                                    py={3}
-                                    px={4}
-                                    align="center"
-                                    justify="space-between"
-                                    cursor="pointer"
-                                    _hover={{ bg: hoverBgColor }}
-                                    onClick={() => onSelect(token)}
-                                    transition="background 0.2s"
-                                >
-                                    <HStack spacing={4}>
-                                        {token.icon ? (
-                                            <Box 
-                                                boxSize="40px" 
-                                                borderRadius="full" 
-                                                overflow="hidden"
-                                                border="1px"
-                                                borderColor={borderColor}
-                                            >
-                                                <Image 
-                                                    src={token.icon} 
-                                                    alt={token.symbol}
-                                                    fallbackSrc="https://via.placeholder.com/40"
-                                                    boxSize="100%"
-                                                    objectFit="cover"
-                                                />
-                                            </Box>
-                                        ) : (
-                                            <Flex
-                                                boxSize="40px"
-                                                borderRadius="full"
-                                                bg={hoverBgColor}
-                                                border="1px"
-                                                borderColor={borderColor}
-                                                justify="center"
-                                                align="center"
-                                                fontWeight="bold"
-                                            >
-                                                {token.symbol?.charAt(0) || '?'}
-                                            </Flex>
-                                        )}
-                                        <VStack spacing={0} align="flex-start">
-                                            <Text fontWeight="bold" fontSize="md" color={textColor}>
-                                                {token.symbol}
-                                            </Text>
-                                            <Text fontSize="sm" color={secondaryTextColor}>
-                                                {token.name || token.symbol}
-                                            </Text>
-                                            <Text fontSize="xs" color={secondaryTextColor} mt={0.5}>
-                                                {token.mint.substring(0, 10)}...{token.mint.substring(token.mint.length - 10)}
-                                            </Text>
-                                        </VStack>
-                                    </HStack>
-                                    
-                                    <Text fontWeight="medium" fontSize="md" color={textColor}>
-                                        {token.balance !== undefined 
-                                            ? Number(token.balance).toLocaleString(undefined, { maximumFractionDigits: 6 })
-                                            : ''}
-                                    </Text>
-                                </Flex>
-                            ))}
-                        </VStack>
-                    ) : (
-                        <Box p={6} textAlign="center">
-                            <Text color={secondaryTextColor}>没有找到匹配的代币</Text>
-                        </Box>
-                    )}
-                </ModalBody>
-            </ModalContent>
-        </Modal>
-    );
-}; 
+    return <VStack align="stretch" spacing={3}>
+        <Text fontSize="xs" color="gray.500">{t("TokenSwap.searchByNameSymbolOrMintVerifyAddressesFor")}</Text>
+        <Input aria-label={t("TokenSwap.searchBySymbolOrMintAddress")} placeholder={t("TokenSwap.symbolOrMintAddress")} value={search} isDisabled={lookingUp} onChange={e => setSearch(e.target.value)} />
+        <HStack flexWrap="wrap"><Button size="sm" variant="ghost" onClick={() => void refresh()} isDisabled={lookingUp}>{t("TokenList.refreshBalances")}</Button><Button size="sm" variant="outline" onClick={lookup} isLoading={lookingUp} isDisabled={!search || lookingUp}>{t("TokenSwap.lookUpMintAddress")}</Button></HStack>
+        {isLoading && <Spinner aria-label={t("TokenSwap.readingToken")} />}
+        {(error || lookupError) && <Text role="alert" color="red.500">{error || lookupError}</Text>}
+        <Box maxH="360px" overflowY="auto">
+            {options.map(token => <Button key={token.mint} variant="ghost" w="full" h="auto" py={3} onClick={() => onSelect(token)} justifyContent="flex-start">
+                <HStack w="full">{token.icon && <Image src={token.icon} alt={token.symbol} boxSize="28px" />}
+                    <VStack align="start" spacing={1} flex={1} minW={0}><Text fontSize="sm" overflowWrap="anywhere">{token.symbol}</Text><Text fontSize="xs" color="gray.500" title={token.mint}>{token.mint.slice(0, 8)}…{token.mint.slice(-8)} · {token.decimals} {t("TokenSwap.decimals")}</Text><Text fontSize="xs" color="gray.500" overflowWrap="anywhere">{t("TokenSwap.balance")}{token.balance ?? t("TokenSwap.notReadNotHeld")}</Text></VStack>
+                </HStack>
+            </Button>)}
+            {!isLoading && !options.length && <Text>{t("TokenSwap.noTokenFoundTryLookingUpItsMintAddress")}</Text>}
+        </Box>
+    </VStack>;
+}

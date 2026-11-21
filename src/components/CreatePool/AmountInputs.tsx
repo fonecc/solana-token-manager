@@ -1,116 +1,38 @@
-import { 
-    Box,
-    VStack,
-    Text,
-    HStack,
-    FormControl,
-    FormLabel,
-    NumberInput,
-    NumberInputField,
-    NumberInputStepper,
-    NumberIncrementStepper,
-    NumberDecrementStepper,
-    InputGroup,
-    InputRightElement,
-    Divider,
-    Badge
-} from '@chakra-ui/react';
+import { useT } from '../../i18n/useT';
+import React from 'react';
+import { Box, FormControl, FormErrorMessage, FormHelperText, FormLabel, Heading, Input, SimpleGrid, Text, VStack } from '@chakra-ui/react';
 
-interface AmountInputsProps {
+export interface AmountInputsProps {
     baseAmount: string;
     quoteAmount: string;
     onBaseAmountChange: (value: string) => void;
     onQuoteAmountChange: (value: string) => void;
+    isDisabled?: boolean;
 }
 
-export const AmountInputs: React.FC<AmountInputsProps> = ({
-    baseAmount,
-    quoteAmount,
-    onBaseAmountChange,
-    onQuoteAmountChange
-}) => {
-    return (
-        <Box 
-            w="100%" 
-            p={6} 
-            borderWidth={1} 
-            borderRadius="lg" 
-            borderColor="purple.200"
-            bg="white"
-            boxShadow="sm"
-        >
-            <VStack spacing={4} align="start" w="100%">
-                <HStack justify="space-between" w="100%">
-                    <Text fontSize="xl" fontWeight="bold">创建流动性池</Text>
-                    <Badge colorScheme="purple" fontSize="md" px={3} py={1} borderRadius="full">
-                        第二步
-                    </Badge>
-                </HStack>
+export const isPositiveAmount = (value: string) => /^\d+(\.\d+)?$/.test(value) && /[1-9]/.test(value);
 
-                <Divider />
-
-                <Text fontSize="sm" color="gray.600">
-                    请输入您想要添加到流动性池的代币数量。确保您的钱包中有足够的余额。
-                </Text>
-
-                <HStack w="100%" spacing={4} align="start">
-                    <FormControl>
-                        <FormLabel fontSize="sm" color="gray.700">代币数量</FormLabel>
-                        <InputGroup size="lg">
-                            <NumberInput
-                                value={baseAmount}
-                                onChange={onBaseAmountChange}
-                                min={0}
-                                precision={2}
-                                w="100%"
-                            >
-                                <NumberInputField 
-                                    borderColor="purple.200"
-                                    _hover={{ borderColor: "purple.300" }}
-                                    _focus={{ borderColor: "purple.500", boxShadow: "0 0 0 1px var(--chakra-colors-purple-500)" }}
-                                />
-                                <NumberInputStepper>
-                                    <NumberIncrementStepper borderColor="purple.200" />
-                                    <NumberDecrementStepper borderColor="purple.200" />
-                                </NumberInputStepper>
-                            </NumberInput>
-                            <InputRightElement width="4.5rem" mr="1.5rem">
-                                <Text fontSize="sm" color="gray.500">代币</Text>
-                            </InputRightElement>
-                        </InputGroup>
-                    </FormControl>
-
-                    <FormControl>
-                        <FormLabel fontSize="sm" color="gray.700">SOL 数量</FormLabel>
-                        <InputGroup size="lg">
-                            <NumberInput
-                                value={quoteAmount}
-                                onChange={onQuoteAmountChange}
-                                min={0}
-                                precision={2}
-                                w="100%"
-                            >
-                                <NumberInputField 
-                                    borderColor="purple.200"
-                                    _hover={{ borderColor: "purple.300" }}
-                                    _focus={{ borderColor: "purple.500", boxShadow: "0 0 0 1px var(--chakra-colors-purple-500)" }}
-                                />
-                                <NumberInputStepper>
-                                    <NumberIncrementStepper borderColor="purple.200" />
-                                    <NumberDecrementStepper borderColor="purple.200" />
-                                </NumberInputStepper>
-                            </NumberInput>
-                            <InputRightElement width="4.5rem" mr="1.5rem">
-                                <Text fontSize="sm" color="gray.500">SOL</Text>
-                            </InputRightElement>
-                        </InputGroup>
-                    </FormControl>
-                </HStack>
-
-                <Text fontSize="xs" color="gray.500" mt={2}>
-                    注意：创建流动性池需要支付一定的交易费用
-                </Text>
-            </VStack>
+export const AmountInputs = ({ baseAmount, quoteAmount, onBaseAmountChange, onQuoteAmountChange, isDisabled = false }: AmountInputsProps) => {
+    const t = useT(); return (<Box as="fieldset" disabled={isDisabled} bg="white" borderWidth="1px" borderColor="purple.200" borderRadius="xl" p={{ base: 4, md: 6 }} minW={0}>
+    <VStack align="stretch" spacing={4}>
+        <Box><Heading as="h3" size="sm">{t("CreatePool.step2SetInitialDeposits")}</Heading><Text fontSize="sm" color="gray.600" lineHeight="tall" mt={2}>{t("CreatePool.bothAssetsAreRequiredTheseArePoolDepositsNot")}</Text></Box>
+        <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
+            <FormControl isInvalid={!isPositiveAmount(baseAmount)} isDisabled={isDisabled}>
+                <FormLabel htmlFor="pool-base-amount" fontSize="sm">{t("CreatePool.baseTokenAmountCurrentMint")}</FormLabel>
+                <Input id="pool-base-amount" value={baseAmount} onChange={e => onBaseAmountChange(e.target.value)} inputMode="decimal" aria-describedby="pool-base-help" bg="gray.50" isDisabled={isDisabled} />
+                {!isPositiveAmount(baseAmount) && <FormErrorMessage>{t("CreatePool.enterADecimalAmountGreaterThan0")}</FormErrorMessage>}
+                <FormHelperText id="pool-base-help" fontSize="xs" lineHeight="tall">{t("CreatePool.tokensDepositedFromYourWalletTheActualMintPrecision")}</FormHelperText>
+            </FormControl>
+            <FormControl isInvalid={!isPositiveAmount(quoteAmount)} isDisabled={isDisabled}>
+                <FormLabel htmlFor="pool-quote-amount" fontSize="sm">{t("CreatePool.solAmountWsolOnChain")}</FormLabel>
+                <Input id="pool-quote-amount" value={quoteAmount} onChange={e => onQuoteAmountChange(e.target.value)} inputMode="decimal" aria-describedby="pool-quote-help" bg="gray.50" isDisabled={isDisabled} />
+                {!isPositiveAmount(quoteAmount) && <FormErrorMessage>{t("CreatePool.enterADecimalAmountGreaterThan0")}</FormErrorMessage>}
+                <FormHelperText id="pool-quote-help" fontSize="xs" lineHeight="tall">{t("CreatePool.theSdkUsesNativeSolThroughItsWsolWrapping")}</FormHelperText>
+            </FormControl>
+        </SimpleGrid>
+        <Box bg="purple.50" borderRadius="lg" p={4}>
+            <Text fontSize="sm" fontWeight="semibold" color="purple.800">{t("CreatePool.whyDoBothAmountsMatter")}</Text>
+            <Text fontSize="xs" color="purple.800" lineHeight="tall" mt={2}>{t("CreatePool.theInitialQuoteFollowsTheRatioOfSolDeposited")}</Text>
         </Box>
-    );
-}; 
+    </VStack>
+</Box>); };

@@ -1,0 +1,6 @@
+{
+  "name": "Tutorial Token",
+  "symbol": "LEARN",
+  "description": "Solana Devnet 教学代币。请将本 JSON 与图片上传到可公开访问的位置。",
+  "image": "https://example.com/replace-with-your-image.png"
+}

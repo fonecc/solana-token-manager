@@ -1,162 +1,27 @@
-import { 
-    Box, 
-    VStack, 
-    Text, 
-    Table, 
-    Tbody, 
-    Tr, 
-    Td, 
-    HStack, 
-    IconButton, 
-    useClipboard,
-    Tooltip,
-    Badge,
-    Divider
-} from '@chakra-ui/react';
-import { CopyIcon, CheckIcon, ExternalLinkIcon } from '@chakra-ui/icons';
+import { useT } from '../../i18n/useT';
+import React from 'react';
+import { Accordion, AccordionButton, AccordionIcon, AccordionItem, AccordionPanel, Badge, Box, Flex, Heading, Text, VStack } from '@chakra-ui/react';
+import { AccountAddress } from '../common/AccountAddress';
+import type { MarketDetailsData } from './types';
 
-interface MarketDetailsProps {
-    details: {
-        marketId: string;
-        baseMint: string;
-        quoteMint: string;
-        baseVault: string;
-        quoteVault: string;
-        lpMint?: string;
-        poolId?: string;
-    };
-}
-
-interface AddressDisplayProps {
-    label: string;
-    value: string;
-    type?: 'success' | 'info' | 'warning';
-}
-
-const AddressDisplay: React.FC<AddressDisplayProps> = ({ label, value, type = 'info' }) => {
-    const { hasCopied, onCopy } = useClipboard(value);
-    
-    const colorScheme = {
-        success: 'green',
-        info: 'blue',
-        warning: 'orange'
-    }[type];
-
-    return (
-        <Box 
-            w="100%" 
-            p={3} 
-            borderWidth={1} 
-            borderRadius="md" 
-            borderColor={`${colorScheme}.200`}
-            bg={`${colorScheme}.50`}
-        >
-            <HStack justify="space-between" align="center">
-                <VStack align="start" spacing={1}>
-                    <Text fontSize="sm" color="gray.600">{label}</Text>
-                    <Text 
-                        fontSize="md" 
-                        fontFamily="mono"
-                        isTruncated
-                        maxW="300px"
-                    >
-                        {value}
-                    </Text>
+export const MarketDetails = ({ details, poolCreated = false }: { details: MarketDetailsData; poolCreated?: boolean }) => {
+    const t = useT(); return (<Box borderWidth="1px" borderColor="green.200" borderRadius="xl" p={{ base: 4, md: 5 }} minW={0}>
+    <Flex justify="space-between" align="center" gap={2} wrap="wrap" mb={3}>
+        <Heading as="h3" size="sm">{t("CreatePool.step1MarketReady")}</Heading><Badge colorScheme="green">{t("CreatePool.validated")}</Badge>
+    </Flex>
+    <Text fontSize="sm" color="gray.600" lineHeight="tall" mb={4}>{poolCreated ? t("CreatePool.thisIsTheOpenbookMarketLinkedToThisPool") : t("CreatePool.aMarketMatchingTheCurrentMintWsolPairIs")}</Text>
+    <AccountAddress label={t("CreatePool.marketIdMarketAddress")} value={details.marketId} compact description={t("CreatePool.thePrerequisiteOrderBookMarketForThisAppS")} />
+    <Accordion allowToggle mt={3}>
+        <AccordionItem border="none">
+            <AccordionButton px={0} fontSize="xs"><Box flex="1" textAlign="left">{t("CreatePool.technicalDetailsMarketTokensAndVaults")}</Box><AccordionIcon /></AccordionButton>
+            <AccordionPanel px={0} pb={0}>
+                <VStack align="stretch" spacing={3}>
+                    <AccountAddress label={t("CreatePool.marketBaseMint")} value={details.baseMint} compact />
+                    <AccountAddress label={t("CreatePool.marketQuoteMintWsol")} value={details.quoteMint} compact description={t("CreatePool.wsolRepresentsNativeSolAsAnSplTokenAnd")} />
+                    <AccountAddress label={t("CreatePool.marketBaseVault")} value={details.baseVault} compact description={t("CreatePool.anAssetAccountUsedByTheOpenbookMarketIt")} />
+                    <AccountAddress label={t("CreatePool.marketWsolVault")} value={details.quoteVault} compact description={t("CreatePool.thisBelongsToTheMarketItDoesNotMean")} />
                 </VStack>
-                <HStack>
-                    <Tooltip label="在 Solscan 查看" placement="top">
-                        <IconButton
-                            aria-label="View on Solscan"
-                            icon={<ExternalLinkIcon />}
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => window.open(`https://solscan.io/account/${value}`, '_blank')}
-                        />
-                    </Tooltip>
-                    <Tooltip label={hasCopied ? "已复制!" : "复制地址"} placement="top">
-                        <IconButton
-                            aria-label="Copy address"
-                            icon={hasCopied ? <CheckIcon /> : <CopyIcon />}
-                            size="sm"
-                            variant="ghost"
-                            onClick={onCopy}
-                        />
-                    </Tooltip>
-                </HStack>
-            </HStack>
-        </Box>
-    );
-};
-
-export const MarketDetails: React.FC<MarketDetailsProps> = ({ details }) => {
-    return (
-        <Box 
-            w="100%" 
-            p={6} 
-            borderWidth={1} 
-            borderRadius="lg" 
-            borderColor="blue.200"
-            bg="white"
-            boxShadow="sm"
-        >
-            <VStack align="start" spacing={4}>
-                <HStack justify="space-between" w="100%">
-                    <Text fontSize="xl" fontWeight="bold">市场详情</Text>
-                    <Badge colorScheme="green" fontSize="md" px={3} py={1} borderRadius="full">
-                        已创建
-                    </Badge>
-                </HStack>
-                
-                <Divider />
-
-                <VStack spacing={4} w="100%">
-                    <AddressDisplay 
-                        label="市场 ID" 
-                        value={details.marketId}
-                        type="success"
-                    />
-                    
-                    <HStack w="100%" spacing={4}>
-                        <AddressDisplay 
-                            label="基础代币" 
-                            value={details.baseMint} 
-                        />
-                        <AddressDisplay 
-                            label="报价代币" 
-                            value={details.quoteMint}
-                        />
-                    </HStack>
-
-                    {details.baseVault && details.quoteVault && (
-                        <HStack w="100%" spacing={4}>
-                            <AddressDisplay 
-                                label="基础代币金库" 
-                                value={details.baseVault}
-                            />
-                            <AddressDisplay 
-                                label="报价代币金库" 
-                                value={details.quoteVault}
-                            />
-                        </HStack>
-                    )}
-
-                    {details.lpMint && (
-                        <AddressDisplay 
-                            label="LP 代币" 
-                            value={details.lpMint}
-                            type="warning"
-                        />
-                    )}
-
-                    {details.poolId && (
-                        <AddressDisplay 
-                            label="流动性池 ID" 
-                            value={details.poolId}
-                            type="success"
-                        />
-                    )}
-                </VStack>
-            </VStack>
-        </Box>
-    );
-}; 
+            </AccordionPanel>
+        </AccordionItem>
+    </Accordion>
+</Box>); };

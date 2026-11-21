@@ -1,207 +1,125 @@
-import { useState, useEffect } from 'react';
-import { 
-    Box, 
-    VStack, 
-    Button, 
-    FormControl, 
-    FormLabel,
-    NumberInput,
-    NumberInputField,
-    useToast,
-    Text
-} from '@chakra-ui/react';
+import { AppError, message as msg, describeError } from '../../i18n/message';
+import { useT, useMessageState, useErrorMessage } from '../../i18n/useT';
+import { useWorkspaceOperation } from '../learning/LearningContext';
+import { useToast } from '@chakra-ui/react';
+import { ACCOUNT_SIZE, MINT_SIZE, TOKEN_PROGRAM_ID, createAssociatedTokenAccountIdempotentInstruction, createInitializeMint2Instruction, getAssociatedTokenAddressSync } from '@solana/spl-token';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
-import { 
-    createMint, 
-    getMinimumBalanceForRentExemptMint, 
-    getOrCreateAssociatedTokenAccount,
-    mintTo
-} from '@solana/spl-token';
-import { 
-    Keypair, 
-    LAMPORTS_PER_SOL, 
-    SystemProgram, 
-    Transaction,
-    sendAndConfirmTransaction
-} from '@solana/web3.js';
-import { getMintAuthority } from '../../utils/wallet';
+import { Keypair, LAMPORTS_PER_SOL, SystemProgram, Transaction } from '@solana/web3.js';
+import React, { useEffect, useState } from 'react';
+import { assertDevnet } from '../../lib/solana/config';
 
-export const CreateToken = () => {
+import { executeTransaction } from '../../lib/solana/transactions';
+import { useTransactionFeedback } from '../common/TransactionFeedback';
+import { CreateTokenView } from './CreateTokenView';
+
+export interface CreatedToken {
+    mint: string;
+    ata: string;
+    signature: string;
+    decimals: number;
+}
+
+export const CreateToken = ({ onCreated, onNext }: {
+    onCreated?: (result: CreatedToken) => void;
+    onNext?: (step: 'metadata' | 'mint', result: CreatedToken) => void;
+}) => {
+    const t = useT();
+    const errorMessage = useErrorMessage();
     const { connection } = useConnection();
     const { publicKey, signTransaction } = useWallet();
-    const [decimals, setDecimals] = useState("9");
-    const [isLoading, setIsLoading] = useState(false);
-    const [balance, setBalance] = useState(0);
+    const [decimals, setDecimals] = useState('9');
+    const [operation, setOperation] = useState<'create' | 'airdrop' | null>(null);
+    const [isRefreshing, setIsRefreshing] = useState(false);
+    const [balance, setBalance] = useState<number | null>(null);
+    const [balanceError, setBalanceError] = useMessageState();
+    const [result, setResult] = useState<CreatedToken | null>(null);
     const toast = useToast();
+    const workspaceOperation = useWorkspaceOperation('create');
+    const { updates, onUpdate } = useTransactionFeedback();
 
-    // 获取余额
     const getBalance = async () => {
-        if (publicKey) {
-            const balance = await connection.getBalance(publicKey);
-            setBalance(balance / LAMPORTS_PER_SOL);
-        }
+        if (!publicKey) return;
+        setIsRefreshing(true);
+        setBalanceError('');
+        try {
+            setBalance(await connection.getBalance(publicKey) / LAMPORTS_PER_SOL);
+        } catch (error) {
+            setBalanceError(msg("CreateToken.balanceReadFailed", { v0: describeError(error) }));
+            throw error;
+        } finally { setIsRefreshing(false); }
     };
 
-    // 请求空投
+    useEffect(() => {
+        let active = true;
+        setResult(null);
+        setBalance(null);
+        setBalanceError('');
+        setIsRefreshing(Boolean(publicKey));
+        if (publicKey) connection.getBalance(publicKey).then(value => {
+            if (active) setBalance(value / LAMPORTS_PER_SOL);
+        }).catch(error => {
+            if (active) setBalanceError(msg("CreateToken.balanceReadFailed", { v0: describeError(error) }));
+        }).finally(() => {
+            if (active) setIsRefreshing(false);
+        });
+        return () => { active = false; };
+    }, [publicKey, connection, setBalanceError]);
+
     const requestAirdrop = async () => {
-        if (!publicKey) return;
-        
+        if (!publicKey || operation) return;
+        if (!workspaceOperation.begin()) return;
+        setOperation('airdrop');
         try {
-            setIsLoading(true);
+            await assertDevnet(connection);
             const signature = await connection.requestAirdrop(publicKey, 2 * LAMPORTS_PER_SOL);
-            await connection.confirmTransaction(signature, 'confirmed');
-            await getBalance();
-            
-            toast({
-                title: "成功",
-                description: "获取 2 SOL 成功",
-                status: "success",
-                duration: 3000,
-            });
+            // Faucet 交易不是本地构造的，按原 signature 查询，不重复请求。
+            const status = await connection.getSignatureStatuses([signature], { searchTransactionHistory: true });
+            if (status.value[0]?.err) throw new AppError(msg("CreateToken.airdropExecutionFailed"));
+            toast({ title: t("CreateToken.airdropRequested"), description: t("CreateToken.refreshYourBalanceLaterTransaction", { v0: signature }), status: 'info', duration: 8000 });
+            await getBalance().catch(() => {});
         } catch (error) {
-            console.error("空投错误:", error);
-            toast({
-                title: "错误",
-                description: "获取 SOL 失败",
-                status: "error",
-                duration: 3000,
-            });
-        } finally {
-            setIsLoading(false);
-        }
+            toast({ title: t("CreateToken.airdropRequestFailed"), description: errorMessage(error), status: 'error' });
+        } finally { setOperation(null); workspaceOperation.end(); }
     };
 
     const handleCreateToken = async () => {
-        if (!publicKey || !signTransaction) {
-            toast({
-                title: "错误",
-                description: "请先连接钱包",
-                status: "error",
-                duration: 3000,
-            });
-            return;
-        }
-
+        if (!publicKey || !signTransaction || operation) return;
+        if (!workspaceOperation.begin()) return;
+        setOperation('create');
+        setResult(null);
         try {
-            setIsLoading(true);
-
-            const mintAuthority = getMintAuthority();
-
-            //获取mintAuthority的余额
-            const mintAuthorityBalance = await connection.getBalance(mintAuthority.publicKey);
-            console.log("mintAuthorityBalance", mintAuthorityBalance);
-            
-            // 获取创建代币所需的最小租金
-            const mintRent = await getMinimumBalanceForRentExemptMint(connection);
-            // 额外添加一些 SOL 用于支付交易费用
-            const totalAmount = mintRent + 0.1 * LAMPORTS_PER_SOL; // 添加 0.1 SOL 作为交易费用
-
-            // 转账 SOL 到 mintAuthority 账户
+            if (!/^\d+$/.test(decimals) || Number(decimals) > 9) throw new AppError(msg("CreateToken.decimalsMustBeAnIntegerFrom0To9"));
+            const mint = Keypair.generate();
+            const ata = getAssociatedTokenAddressSync(mint.publicKey, publicKey);
+            const [mintRent, ataRent, lamports] = await Promise.all([
+                connection.getMinimumBalanceForRentExemption(MINT_SIZE),
+                connection.getMinimumBalanceForRentExemption(ACCOUNT_SIZE),
+                connection.getBalance(publicKey)
+            ]);
             const transaction = new Transaction().add(
-                SystemProgram.transfer({
-                    fromPubkey: publicKey,
-                    toPubkey: mintAuthority.publicKey,
-                    lamports: totalAmount
-                })
+                SystemProgram.createAccount({ fromPubkey: publicKey, newAccountPubkey: mint.publicKey, space: MINT_SIZE, lamports: mintRent, programId: TOKEN_PROGRAM_ID }),
+                createInitializeMint2Instruction(mint.publicKey, Number(decimals), publicKey, publicKey),
+                createAssociatedTokenAccountIdempotentInstruction(publicKey, ata, publicKey, mint.publicKey)
             );
-
-            const { blockhash } = await connection.getLatestBlockhash();
-            transaction.recentBlockhash = blockhash;
+            const latest = await connection.getLatestBlockhash('confirmed');
+            transaction.recentBlockhash = latest.blockhash;
             transaction.feePayer = publicKey;
-
-            // 等待确认转账交易
-            const signed = await signTransaction(transaction);
-            const transferSignature = await connection.sendRawTransaction(signed.serialize());
-            const confirmation = await connection.confirmTransaction(transferSignature, 'confirmed');
-            
-            if (confirmation.value.err) {
-                throw new Error('转账失败');
-            }
-
-            // 创建代币铸造账户
-            const mint = await createMint(
-                connection,
-                mintAuthority,    // 使用新生成的密钥对
-                publicKey,        // mint authority (铸币权限)
-                publicKey,        // freeze authority (冻结权限)
-                Number(decimals)
-            );
-            const mintATA = await getOrCreateAssociatedTokenAccount(
-                connection,
-                mintAuthority,
-                mint,
-                publicKey
-            );
-            console.log("mintATA", mintATA);
-
-            // 更新钱包余额显示
-            await getBalance();
-
-            toast({
-                title: "成功",
-                description: `代币创建成功！\n代币地址: ${mint.toBase58()}\n铸币权限: ${publicKey.toBase58()}\n冻结权限: ${publicKey.toBase58()}`,
-                status: "success",
-                duration: 5000,
-                isClosable: true,
-            });
-
+            const fee = await connection.getFeeForMessage(transaction.compileMessage(), 'confirmed');
+            if (fee.value === null) throw new AppError(msg("CreateToken.cannotEstimateTheFeeTryAgainLater"));
+            if (lamports < mintRent + ataRent + fee.value) throw new AppError(msg("CreateToken.insufficientBalanceForMintAndAtaRentPlusTransaction"));
+            const signature = await executeTransaction(connection, { publicKey, signTransaction }, transaction, [mint], onUpdate);
+            const created = { mint: mint.publicKey.toBase58(), ata: ata.toBase58(), signature, decimals: Number(decimals) };
+            setResult(created);
+            onCreated?.(created);
+            await getBalance().catch(() => {});
+            toast({ title: t("CreateToken.mintAndAtaCreated"), status: 'success' });
         } catch (error) {
-            console.error("创建代币错误:", error);
-            toast({
-                title: "错误",
-                description: "创建代币失败: " + (error as Error).message,
-                status: "error",
-                duration: 3000,
-            });
-        } finally {
-            setIsLoading(false);
-        }
+            toast({ title: t("CreateToken.creationNotCompleted"), description: errorMessage(error), status: 'error', duration: 8000 });
+        } finally { setOperation(null); workspaceOperation.end(); }
     };
 
-    // 在组件加载时获取余额
-    useEffect(() => {
-        getBalance();
-    }, [publicKey]);
-
-    return (
-        <Box p={4}>
-            <VStack spacing={4} align="stretch">
-                <Box>
-                    <Text>当前余额: {balance} SOL</Text>
-                    <Button
-                        colorScheme="blue"
-                        onClick={requestAirdrop}
-                        isLoading={isLoading}
-                        loadingText="请求中..."
-                        size="sm"
-                        mt={2}
-                    >
-                        获取测试 SOL
-                    </Button>
-                </Box>
-
-                <FormControl>
-                    <FormLabel>小数位数</FormLabel>
-                    <NumberInput 
-                        value={decimals} 
-                        onChange={(value) => setDecimals(value)}
-                        min={0} 
-                        max={9}
-                    >
-                        <NumberInputField />
-                    </NumberInput>
-                </FormControl>
-
-                <Button
-                    colorScheme="purple"
-                    onClick={handleCreateToken}
-                    isLoading={isLoading}
-                    loadingText="创建中..."
-                    isDisabled={balance < 0.5}
-                >
-                    创建代币
-                </Button>
-            </VStack>
-        </Box>
-    );
-}; 
+    return <CreateTokenView decimals={decimals} onDecimalsChange={setDecimals} balance={balance} balanceError={balanceError}
+        isRefreshing={isRefreshing} operation={operation} walletReady={Boolean(publicKey && signTransaction)} result={result} updates={updates}
+        onRefresh={() => { void getBalance().catch(() => {}); }} onAirdrop={() => { void requestAirdrop(); }}
+        onCreate={() => { void handleCreateToken(); }} onNext={onNext} />;
+};

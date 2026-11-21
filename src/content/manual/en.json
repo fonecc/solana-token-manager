@@ -1,0 +1,545 @@
+[
+  {
+    "id": "start",
+    "title": "Before you start",
+    "summary": "A Devnet lab for classic SPL Token accounts and protocol integration—not a mainnet asset manager or an investment product. No private key is needed.",
+    "prerequisites": [
+      "Install a supported Solana wallet and create a separate test wallet. Never use valuable assets or enter a recovery phrase here."
+    ],
+    "steps": [
+      {
+        "title": "Choose a language",
+        "text": "Use the header selector. English is the default; the URL records the selected language. Wallet extension screens have their own language settings."
+      },
+      {
+        "title": "Connect your test wallet",
+        "text": "Click Connect wallet, choose a discovered wallet, and approve only a connection you recognize. If a wallet is already selected but disconnected, click again to connect. Reading balances does not require a transaction signature."
+      },
+      {
+        "title": "Prepare Devnet SOL",
+        "text": "Open Create token and request test SOL if needed. Airdrops may be rate-limited. SOL pays fees and account rent; your new token cannot pay these costs. Use a small test budget and refresh the balance."
+      },
+      {
+        "title": "Follow the learning path",
+        "text": "Create → Metadata → Mint → Assets and transfers → Freeze/thaw → Burn. Attempt market/pool, liquidity and swap lessons only after the basics. Opening a lesson is not proof of completion."
+      },
+      {
+        "title": "Review, sign, and save",
+        "text": "Check addresses, amounts and authorities in the app and wallet. Save the Mint, ATA, public signatures and any Market/Pool IDs. Submitted is not confirmed. Open the Devnet Explorer links to verify independently."
+      }
+    ],
+    "review": [
+      "The app verifies Devnet by genesis hash before writes. Never approve an unexpected transaction or provide a private key."
+    ],
+    "verify": [
+      "A connection alone changes no token supply or balance. Only confirmed transactions establish on-chain changes; fees may still apply to failed on-chain transactions."
+    ],
+    "troubleshooting": [
+      "If a wallet is not detected, install/enable it and reload. If an airdrop fails, do not treat the request as a balance increase. Check the original signature and refresh."
+    ],
+    "terms": [
+      "Wallet: signer and fee payer. Devnet: test cluster. Signature: public transaction identifier, not a private key."
+    ],
+    "sources": [
+      "token",
+      "explorer"
+    ]
+  },
+  {
+    "id": "assets",
+    "title": "My assets and authorities",
+    "summary": "Distinguish balances you hold from authorities you control. These are independent capabilities.",
+    "prerequisites": [
+      "Connect a test wallet. No signature is required to read assets. The list discovers held classic SPL tokens; it is not a complete registry of every Mint you administer."
+    ],
+    "steps": [
+      {
+        "title": "Read balances",
+        "text": "Open My assets. Wait for loading to finish; use Refresh balances to reread SOL, token balances and authorities. A read error is not proof of a zero balance."
+      },
+      {
+        "title": "Choose the right filter",
+        "text": "All tokens shows discovered holdings. Tokens I manage filters these results by this wallet’s mint, freeze or metadata authority. Holding tokens does not grant any of those authorities."
+      },
+      {
+        "title": "Verify the Mint",
+        "text": "Use the full Mint address or its Explorer link, not just the name or symbol. Identical names can represent different assets. Unknown name means display metadata is unavailable, not that the asset is invalid."
+      },
+      {
+        "title": "Choose an action",
+        "text": "Transfer sends existing holdings. Mint creates additional supply if authorized. More actions groups metadata, freeze/thaw, DeFi and irreversible revocation. Opening an action or lesson does not submit it."
+      },
+      {
+        "title": "Distinguish native SOL and WSOL",
+        "text": "The header SOL balance is native SOL. Wrapped SOL in the token list is an SPL account balance. They are not interchangeable display totals. Keep native SOL for fees."
+      }
+    ],
+    "review": [
+      "List balances may aggregate multiple token accounts. Transfers and burns in this interface use your ATA and recheck its actual available balance."
+    ],
+    "verify": [
+      "A refresh changes no on-chain state. Check wallet ownership, Mint and actual ATA balances in Explorer before writing."
+    ],
+    "troubleshooting": [
+      "No managed tokens may mean no discovered holding has matching authority. Use a known Mint directly in a lesson where supported. Do not infer authority from the name or balance."
+    ],
+    "terms": [
+      "Mint Authority: issuance permission. Freeze Authority: account freeze/thaw permission. Update Authority: metadata editing permission."
+    ],
+    "sources": [
+      "token",
+      "ata",
+      "metadata"
+    ]
+  },
+  {
+    "id": "create",
+    "title": "Create a Mint and ATA",
+    "summary": "Create token identity and your holding account. Initial supply is zero; names and issuance are later steps.",
+    "prerequisites": [
+      "Connect a test wallet with enough Devnet SOL for Mint/ATA rent and transaction fees."
+    ],
+    "steps": [
+      {
+        "title": "Check SOL",
+        "text": "Open Create token. Refresh the balance; request test SOL only if necessary. An airdrop request can fail or be delayed."
+      },
+      {
+        "title": "Choose decimals",
+        "text": "Enter an integer from 0 to 9. With 0, amounts must be whole tokens; with 6, the smallest unit is 0.000001 token; with 9, it is 0.000000001. This does not choose supply."
+      },
+      {
+        "title": "Create the accounts",
+        "text": "Click Create Mint and ATA. Review the wallet request: your wallet pays rent and fees and receives mint and freeze authority. The generated Mint keypair is an extra signer, not a shared fee payer."
+      },
+      {
+        "title": "Wait and save",
+        "text": "Wait for Confirmed on-chain. Copy the Mint, your ATA and signature. Creating again produces a different Mint; it does not edit the previous one."
+      },
+      {
+        "title": "Continue with the same Mint",
+        "text": "Use Set name and symbol for metadata, then mint a small amount. The next-step buttons carry the created Mint; they do not automatically issue tokens."
+      }
+    ],
+    "review": [
+      "Decimals cannot change after initialization. Verify the wallet and chosen decimals before signing."
+    ],
+    "verify": [
+      "In Devnet Explorer, verify decimals, supply 0 at creation, authorities and ATA owner/Mint. Later issuance changes supply, so the current supply need not remain 0."
+    ],
+    "troubleshooting": [
+      "If balance or fee estimation fails, refresh rather than guess. If confirmation is pending, check the original signature before creating again."
+    ],
+    "terms": [
+      "Mint identifies the token type. ATA holds one wallet’s balance of that type. Decimals describe precision, not the number issued."
+    ],
+    "sources": [
+      "token",
+      "ata"
+    ]
+  },
+  {
+    "id": "metadata",
+    "title": "Create or update metadata",
+    "summary": "Link a name, symbol and optional JSON URI to an existing Mint. Metadata does not change balances, supply or decimals.",
+    "prerequisites": [
+      "First-time setup needs mint authority. Update existing needs the current Metadata Update Authority and mutable metadata."
+    ],
+    "steps": [
+      {
+        "title": "Select the correct mode",
+        "text": "Open Name and image. Choose First-time setup only if Metadata does not exist; otherwise choose Update existing. Paste the Mint, not a wallet or ATA."
+      },
+      {
+        "title": "Enter name and symbol",
+        "text": "Name is required and limited to 32 UTF-8 bytes; symbol to 10 bytes. Non-ASCII characters often use multiple bytes. Example: Learning Token / LEARN. These are display labels, not unique identifiers."
+      },
+      {
+        "title": "Prepare the optional JSON URI",
+        "text": "Use an accessible http(s) or ipfs URI up to 200 bytes, such as https://your-host.example/metadata.json. It must point to JSON, not directly to an image. The JSON may contain name, symbol, description and image; the image field points to the image resource. View the in-page JSON example."
+      },
+      {
+        "title": "Keep future updates enabled",
+        "text": "Keep Allow future metadata updates enabled for the lesson. Turning it off opens a permanent-lock confirmation. The app does not host files; changing a remote JSON file is distinct from changing its on-chain URI."
+      },
+      {
+        "title": "Review and submit",
+        "text": "Confirm the mode, Mint, byte counts, URI and mutability, then request a signature. Updating retains existing seller fees, creators, collection and uses rather than silently resetting them."
+      }
+    ],
+    "review": [
+      "Setting isMutable to false is irreversible even if you still hold update authority. Do not lock just to test a button."
+    ],
+    "verify": [
+      "Verify the Metadata account’s Mint, name, symbol, URI, update authority and mutability in Explorer. Supply and balances should not change. Wallet images may update later because of caching."
+    ],
+    "troubleshooting": [
+      "A missing image may be an inaccessible URI, invalid JSON or cache—not a failed transaction. Check on-chain Metadata first, then open the JSON and image resource separately."
+    ],
+    "terms": [
+      "URI stores a resource location. Update Authority edits mutable Metadata. Mint Authority is required for this interface’s initial creation, but is not the same role."
+    ],
+    "sources": [
+      "metadata",
+      "token"
+    ]
+  },
+  {
+    "id": "mint",
+    "title": "Mint additional tokens",
+    "summary": "Issue a new amount to your own wallet or another wallet. This increases both supply and the recipient ATA balance.",
+    "prerequisites": [
+      "The connected wallet must hold Mint Authority. Prepare SOL for fees and possibly a new recipient ATA."
+    ],
+    "steps": [
+      {
+        "title": "Enter the Mint",
+        "text": "Open Mint tokens and paste the intended Mint, or continue from a creation result. Confirm the full address."
+      },
+      {
+        "title": "Choose the recipient",
+        "text": "Leave recipient blank for your current wallet. To issue to another person, enter their wallet address—not their ATA. The app derives and idempotently creates the ATA when needed."
+      },
+      {
+        "title": "Enter an additional amount",
+        "text": "For a 6-decimal Mint, try 10.000001. Entering 10 adds 10 tokens; it does not set total supply to 10 or transfer from your existing balance. Do not use scientific notation or thousands separators."
+      },
+      {
+        "title": "Review and mint",
+        "text": "Check the summary and click Review and mint tokens. Actual Mint authority and decimals are reread before building the checked instruction. Approve only the intended request and wait for confirmation."
+      }
+    ],
+    "review": [
+      "Confirm Mint, recipient wallet and additional amount. A newly created ATA can cost extra rent. Permanently revoked mint authority cannot be restored."
+    ],
+    "verify": [
+      "Use the signature and Explorer: recipient ATA balance and Mint supply each increase by the exact amount. Mint address and decimals remain unchanged."
+    ],
+    "troubleshooting": [
+      "Authority errors require the correct authority wallet, not another click. For an unknown transaction outcome, query the original signature before attempting more issuance."
+    ],
+    "terms": [
+      "Minting creates supply. A transfer moves existing supply. Checked instructions include actual decimals."
+    ],
+    "sources": [
+      "token",
+      "ata"
+    ]
+  },
+  {
+    "id": "transfer",
+    "title": "Transfer tokens or native SOL",
+    "summary": "Send existing holdings to a recipient wallet. Transfers do not change token supply or management authorities.",
+    "prerequisites": [
+      "Connect the source wallet. Its token ATA must have enough spendable balance and not be frozen. Keep native SOL for fees."
+    ],
+    "steps": [
+      {
+        "title": "Open the token transfer",
+        "text": "In My assets, find the correct Mint and click Transfer. Check the Mint in the dialog. The list total may include multiple accounts, but the source for this action is your ATA."
+      },
+      {
+        "title": "Enter recipient and amount",
+        "text": "Enter the recipient wallet address and a positive decimal amount within the token’s precision, for example 1.25 for 6 decimals. The recipient ATA is derived and created if needed, with rent paid by your wallet."
+      },
+      {
+        "title": "Review and sign",
+        "text": "Click Confirm transfer and request signature. Verify the destination, amount and fees in your wallet. Wait for on-chain confirmation before closing or trying again."
+      },
+      {
+        "title": "Send native SOL separately",
+        "text": "Expand Send SOL above the token list. Enter a recipient wallet and SOL amount, then Send SOL. This is a native SOL transfer, not WSOL. The app estimates the transaction fee and rejects amounts that leave insufficient SOL for it."
+      }
+    ],
+    "review": [
+      "Addresses are not automatically corrected. Use a small test transfer first. Never send the entire native SOL balance without accounting for fees and future operations."
+    ],
+    "verify": [
+      "For tokens, source and destination ATA balances change by equal amounts; total supply and authorities do not change. Native SOL source balance decreases by amount plus fees; check the actual transaction details."
+    ],
+    "troubleshooting": [
+      "If confirmed but balance refresh fails, refresh later without submitting again. An aggregate list balance is not proof that the ATA can transfer that total."
+    ],
+    "terms": [
+      "Recipient wallet is an owner address; ATA is a token holding account. Native SOL uses lamports (9 decimals)."
+    ],
+    "sources": [
+      "token",
+      "ata",
+      "explorer"
+    ]
+  },
+  {
+    "id": "freeze",
+    "title": "Freeze and thaw an ATA",
+    "summary": "Change the state of one token account—not an entire wallet and not the Mint supply.",
+    "prerequisites": [
+      "Your wallet must hold Freeze Authority for the Mint. Use a target wallet with an existing ATA for that Mint."
+    ],
+    "steps": [
+      {
+        "title": "Read the Mint first",
+        "text": "Open Freeze and thaw, enter the Mint and click Read Mint and authority. Until the read completes, the page does not know whether you have authority."
+      },
+      {
+        "title": "Check the target ATA",
+        "text": "Enter the target wallet address and click Check target ATA. The app derives its ATA for the selected Mint and shows missing, active, frozen or unknown/error state. It does not scan every account of that wallet."
+      },
+      {
+        "title": "Freeze an active ATA",
+        "text": "When active, choose Freeze this ATA. Review the confirmation’s Mint, target wallet and ATA, then confirm the signature request. While frozen, the account cannot transfer tokens normally."
+      },
+      {
+        "title": "Thaw and reread",
+        "text": "After confirming a Frozen state, choose Thaw this ATA. An authority still present can restore normal state. Reread the account after confirmation and before revoking any freeze authority."
+      }
+    ],
+    "review": [
+      "Only this target ATA changes. Before permanently revoking freeze authority, thaw every account you intend to restore; revocation cannot thaw it later."
+    ],
+    "verify": [
+      "Explorer should show Frozen after freezing and Initialized after thawing. Token balance and Mint supply remain unchanged, while native SOL pays fees."
+    ],
+    "troubleshooting": [
+      "The interface will not freeze a missing ATA. Have the target receive a small amount first. A failed state read means unknown, not unfrozen. If the transaction confirmed but refresh failed, check again without resubmitting."
+    ],
+    "terms": [
+      "Freeze Authority controls account state; account ownership and mint authority are separate roles."
+    ],
+    "sources": [
+      "token",
+      "ata"
+    ]
+  },
+  {
+    "id": "burn",
+    "title": "Burn and permanently revoke authorities",
+    "summary": "These are distinct irreversible actions. Burning reduces holdings and supply; revocation removes future administrative capability.",
+    "prerequisites": [
+      "Use a disposable test Mint and a very small balance. Burning needs your unfrozen ATA balance; revocation needs the relevant current authority."
+    ],
+    "steps": [
+      {
+        "title": "Load the burn account",
+        "text": "Open Burn tokens, enter the Mint and read your ATA. Check actual ATA balance, decimals and frozen state. The list aggregate is not the available burn balance."
+      },
+      {
+        "title": "Burn a small amount",
+        "text": "Enter an amount such as 0.01 within precision and balance. Choose the review button, inspect Mint/ATA/amount in the confirmation, and confirm permanent burning only if intended."
+      },
+      {
+        "title": "Revoke mint authority separately",
+        "text": "In My assets, open the target token’s More actions → Permanently revoke mint authority. Read the irreversible warning and confirm. This sets mint authority to None; it does not burn existing tokens."
+      },
+      {
+        "title": "Thaw before revoking freeze authority",
+        "text": "Check and thaw accounts you want to keep usable. Then, if intentionally retiring the authority, choose Permanently revoke freeze authority in the same menu and confirm the Mint. Revocation permanently removes both freezing and thawing."
+      }
+    ],
+    "review": [
+      "Burning cannot be undone and does not revoke mint authority. Revoked authorities cannot be restored. Already frozen accounts remain frozen after freeze authority is removed."
+    ],
+    "verify": [
+      "Burn: ATA balance and Mint supply decrease equally; the Mint, ATA and authorities remain. Revocation: the chosen authority becomes None; supply and token balances remain unchanged. Fees are separate."
+    ],
+    "troubleshooting": [
+      "Burning is not account closure, and this interface does not recover rent by burning. A refresh error after confirmation is not a reason to burn or revoke again."
+    ],
+    "terms": [
+      "Burn: destroy existing tokens. Revoke: set a chosen authority to None. Fixed minting capability does not prevent supply decreasing through burns."
+    ],
+    "sources": [
+      "token"
+    ]
+  },
+  {
+    "id": "pool",
+    "title": "Create a market and liquidity pool",
+    "summary": "This project uses legacy Raydium AMM V4 with an OpenBook market on Devnet. It is not the current CPMM/CLMM onboarding flow.",
+    "prerequisites": [
+      "Hold a classic SPL token and native SOL for both deposits and extra rent/protocol/network costs. Only Mint / WSOL is supported for creation. No complete fee estimate or liquidity removal interface is provided."
+    ],
+    "steps": [
+      {
+        "title": "Prepare the token",
+        "text": "From My assets, choose Create liquidity pool for the intended token. Check the base Mint. Creating only a Mint is not enough; mint a small holding first. WSOL cannot be the base token here."
+      },
+      {
+        "title": "Create or validate the market",
+        "text": "Choose market creation, or paste an existing compatible Market ID and read it. A read is signature-free. Creation uses SDK lotSize 1 and tickSize 0.01; these are project settings, not a general recommendation. The app checks program ownership and the Mint / WSOL pair."
+      },
+      {
+        "title": "Save each confirmed market step",
+        "text": "Review each requested signature. Once market transactions confirm, save the Market ID and all signatures. Market ready does not mean pool created. If the read fails after confirmation, validate the saved ID again instead of creating another market."
+      },
+      {
+        "title": "Set both initial deposits",
+        "text": "Enter base-token and SOL amounts. For explanation only: 100 tokens + 0.1 SOL implies an initial ratio of 0.001 SOL per token. This is not fair value or a recommendation. The SDK wraps native SOL as needed; do not manually send to vault addresses."
+      },
+      {
+        "title": "Create the pool",
+        "text": "Review both deposits and additional costs in the wallet, then confirm pool creation. Multiple transactions may be requested. Stop after a failed step; confirmed earlier steps do not roll back. There is no automatic resume or refund."
+      },
+      {
+        "title": "Verify and hand off the Pool ID",
+        "text": "Save Pool ID, LP Mint, Market ID and signatures. Use Use this Pool ID in Add liquidity to fill the next form only; you must still read and validate it. Switching lessons keeps the record. Manage local records explicitly clears it, not the chain."
+      }
+    ],
+    "review": [
+      "Costs can greatly exceed a normal transfer. Do not assume Devnet programs or pools are available. This interface does not remove liquidity or guarantee that swaps will work after creation."
+    ],
+    "verify": [
+      "Verify market/pool Mint pairs, each transaction outcome, actual asset debits and LP balance increase. Initial deposit values shown are historical inputs, not current reserves or actual LP receipts."
+    ],
+    "troubleshooting": [
+      "Partial failure: inspect every original signature and created account before any further action. Do not recreate merely because the page was refreshed. The app has no general partial-batch recovery mechanism."
+    ],
+    "terms": [
+      "Market ID identifies the orderbook market; Pool ID identifies AMM state; LP Mint identifies the share-token type; vaults hold protocol assets. None is your LP balance."
+    ],
+    "sources": [
+      "sdk",
+      "openbook",
+      "token"
+    ]
+  },
+  {
+    "id": "liquidity",
+    "title": "Add liquidity to an existing pool",
+    "summary": "Read an actual AMM V4 pool, review proportional deposits and verify LP received. Estimates are not receipts.",
+    "prerequisites": [
+      "Have a usable Devnet AMM V4 Pool ID, both pool assets and extra SOL for fees. Do not use a Market ID or LP Mint as the Pool ID."
+    ],
+    "steps": [
+      {
+        "title": "Load the pool",
+        "text": "Choose By Pool ID and paste the saved ID, or choose By token pair and enter both Mints. For SOL use the WSOL Mint So11111111111111111111111111111111111111112. Click Read and validate pool; this does not sign."
+      },
+      {
+        "title": "Verify base and quote",
+        "text": "Check the loaded Pool ID and full base/quote Mint addresses and decimals. The pool’s base side is determined by its on-chain layout, not by the order you expected."
+      },
+      {
+        "title": "Enter the base amount",
+        "text": "Enter a positive amount within base decimals. The SDK calculates estimated and maximum quote-side deposits using a fixed 1% bound in this lesson. This is not the swap slippage setting."
+      },
+      {
+        "title": "Review and submit",
+        "text": "Review the base amount, quote estimate and maximum, then confirm. The same pool is reread. If the required maximum grows beyond the reviewed limit, the app clears the quote and asks you to re-enter/review instead of signing a larger deposit."
+      }
+    ],
+    "review": [
+      "Confirm both Mints, the same Pool ID and enough balances plus fees. This app does not provide liquidity removal; do not deposit assets you need to recover through this interface."
+    ],
+    "verify": [
+      "Use transaction records to check actual debits on both sides and the wallet’s LP balance increase. LP Mint is not an amount. SOL may additionally pay rent and fees."
+    ],
+    "troubleshooting": [
+      "No matching pool is not replaced by an unrelated pool. A confirmed deposit with a failed refresh must be checked by its original signatures, not deposited again."
+    ],
+    "terms": [
+      "LP tokens represent a liquidity share, not a guaranteed return or claim to a fixed future asset quantity. Pool ratios and availability change."
+    ],
+    "sources": [
+      "sdk",
+      "token"
+    ]
+  },
+  {
+    "id": "swap",
+    "title": "Quote and swap tokens",
+    "summary": "Read the direction, expected output, minimum received and same-pool protection before signing.",
+    "prerequisites": [
+      "A usable Devnet AMM V4 pool must exist for the pair. Hold input assets and additional native SOL. Selecting a token does not establish pool availability."
+    ],
+    "steps": [
+      {
+        "title": "Choose direction and assets",
+        "text": "Open Swap tokens. Choose the paying and receiving token by verified Mint. Search by symbol/Mint or look up a custom Mint. The direction-reversal button swaps input and output; reread the labels afterward."
+      },
+      {
+        "title": "Enter amount and slippage",
+        "text": "Enter the exact input amount. Slippage accepts 0–5% with at most two decimal places. It determines the minimum output constraint; it is not an extra fee. Quotes begin after a short debounce and do not request signatures."
+      },
+      {
+        "title": "Review the preview",
+        "text": "Click Preview swap and minimum received. Check both Mints, direction, input, estimated output, minimum received, slippage and Pool ID. Price impact is different from slippage; Not provided is unknown, not zero."
+      },
+      {
+        "title": "Confirm the current quote",
+        "text": "Confirm swap and request signature rereads the same pool. A quote older than 30 seconds or a changed minimum received requires you to review and confirm again. A different default pool is never silently substituted."
+      },
+      {
+        "title": "Check actual execution",
+        "text": "Approve only the reviewed request and wait for confirmation. The SDK handles native SOL wrapping as needed. Save all transaction signatures; a preview itself is not an executed swap."
+      }
+    ],
+    "review": [
+      "Minimum received is an instruction condition, not a success guarantee. Pool state may change; network and account costs are additional."
+    ],
+    "verify": [
+      "Compare actual input/output balance changes and instruction constraints in Explorer. Native SOL changes may also include fees and temporary-account rent movements."
+    ],
+    "troubleshooting": [
+      "No pool or unsupported program means this integration cannot quote that pair. Edit the pair or use a verified compatible pool; do not assume a token selection guarantees liquidity. On pending outcomes check original signatures first."
+    ],
+    "terms": [
+      "Estimated output uses current reserves. Minimum output protects the instruction. Slippage is tolerated movement; price impact is the trade’s effect on pool price."
+    ],
+    "sources": [
+      "sdk",
+      "token"
+    ]
+  },
+  {
+    "id": "recovery",
+    "title": "Recovery, records and glossary",
+    "summary": "Recover by inspecting original signatures and accounts—not by automatically repeating uncertain writes.",
+    "prerequisites": [
+      "Keep public signatures and Mint/Market/Pool IDs outside the page. Do not store private keys in the manual, URL or support reports."
+    ],
+    "steps": [
+      {
+        "title": "Distinguish transaction stages",
+        "text": "Awaiting signature has not broadcast yet. Submitted/confirming means no final result yet. Confirmed on-chain means confirmation succeeded without execution error. Outcome pending means the app could not establish the result; do not resubmit."
+      },
+      {
+        "title": "Inspect the original signature",
+        "text": "Open the original Devnet Explorer link. Inspect status, execution error, involved accounts and actual balance changes. If Explorer/RPC is unavailable, the result remains unknown; absence from one failed read is not proof of failure."
+      },
+      {
+        "title": "Handle rejection and read failures",
+        "text": "A rejected request may be edited and retried only after confirming nothing was submitted. A confirmed transaction with failed balance/market/pool refresh needs a read retry, not another write. External RPC/SDK diagnostic text may remain in its original language."
+      },
+      {
+        "title": "Handle multiple transactions",
+        "text": "For a batch failure, inspect every confirmed signature plus the failing step. Earlier confirmed transactions remain on-chain. There is no all-or-nothing rollback or general automatic resume."
+      },
+      {
+        "title": "Understand local record boundaries",
+        "text": "Same-page language changes and lesson navigation preserve mounted drafts and transaction records. Wallet changes reset the workspace. Refreshing, changing a lesson’s experiment Mint or explicitly clearing a form may discard local records; none undoes a transaction. Open the manual from the header or course menu and return to the lesson to continue with the same draft."
+      },
+      {
+        "title": "Respect pending-operation protection",
+        "text": "The app locks overlapping writes in the current workspace and tracks unknown signatures in session storage when available. This is not a cross-tab lock or on-chain idempotency guarantee. Do not clear storage, change wallets/tabs or use another browser to bypass an unknown result."
+      }
+    ],
+    "review": [
+      "Never solve a timeout by automatically replacing the blockhash and signing the same business operation again. A timeout does not cancel the original transaction."
+    ],
+    "verify": [
+      "Use the chain as the source of truth. A local success message, cleared form or copied address is not independent proof of the intended state."
+    ],
+    "troubleshooting": [
+      "When reporting an issue, include public signatures, cluster, relevant Mint/Pool IDs, expected vs actual behavior and raw diagnostic text. Never include seed phrases or private keys."
+    ],
+    "terms": [
+      "Mint: token identity; ATA: wallet/token balance account; authority: a specific permission; supply: total minted minus burned; LP: pool share token; signature: transaction identifier."
+    ],
+    "sources": [
+      "token",
+      "explorer",
+      "sdk"
+    ]
+  }
+]

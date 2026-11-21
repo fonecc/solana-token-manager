@@ -1,28 +1,26 @@
-import dynamic from 'next/dynamic';
-import { useWallet } from '@solana/wallet-adapter-react';
+import React from 'react';
 import { Button } from '@chakra-ui/react';
+import { useWallet } from '@solana/wallet-adapter-react';
+import { useWalletModal } from '@solana/wallet-adapter-react-ui';
+import { useT, useErrorMessage } from '../../i18n/useT';
+import { useToast } from '@chakra-ui/react';
 
-const WalletMultiButton = dynamic(
-    async () => (await import('@solana/wallet-adapter-react-ui')).WalletMultiButton,
-    { ssr: false }
-);
-
-export const WalletButton = () => {
-    const { connected, disconnect } = useWallet();
-
-    return (
-        <div className="wallet-button">
-            {connected ? (
-                <Button 
-                    colorScheme="red" 
-                    onClick={disconnect}
-                    size="md"
-                >
-                    断开连接
-                </Button>
-            ) : (
-                <WalletMultiButton />
-            )}
-        </div>
-    );
-}; 
+export const WalletButton = ({ size = 'md', label }: { size?: 'md' | 'lg'; label?: string }) => {
+    const t = useT();
+    const formatError = useErrorMessage();
+    const toast = useToast();
+    const { connected, connecting, disconnect, connect, wallet } = useWallet();
+    const { setVisible } = useWalletModal();
+    return <Button colorScheme={connected ? 'gray' : 'purple'} variant={connected ? 'outline' : 'solid'} size={size}
+        isLoading={connecting} loadingText={t('wallet.connecting')} onClick={async () => {
+            try {
+                if (connected) await disconnect();
+                else if (wallet) await connect();
+                else setVisible(true);
+            } catch (error) {
+                toast({ title: t('wallet.connectionFailed'), description: formatError(error), status: 'error' });
+            }
+        }}>
+        {connected ? t('WalletButton.disconnect') : label || t('WalletButton.connectWallet')}
+    </Button>;
+};
