@@ -8,6 +8,20 @@
 
 作者 **[0xF1](https://fone.cc)**。其他项目和文章放在 **[fone.cc](https://fone.cc)**。如果这个项目帮到了你，欢迎在 [GitHub 点个 Star](https://github.com/fonecc/solana-token-manager)。
 
+## 界面预览
+
+学习总览：课程导航与「准备 → 操作 → 验证」流程。
+
+![学习总览：课程导航与「准备 → 操作 → 验证」流程。](screenshots/learning-overview.png)
+
+Raydium 建池课程：先准备 OpenBook 市场，再向 AMM V4 池投入资产。
+
+![Raydium 建池课程：先准备 OpenBook 市场，再向 AMM V4 池投入资产。](screenshots/liquidity-pool-lesson.png)
+
+同页使用手册：简体中文版「创建 Mint 与 ATA」分步指南。
+
+![同页使用手册：简体中文版「创建 Mint 与 ATA」分步指南。](screenshots/mint-manual-zh-cn.png)
+
 ## 功能
 
 | 模块 | 实现 | 说明 |

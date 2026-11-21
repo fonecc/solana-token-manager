@@ -8,6 +8,20 @@ The app calls existing Solana programs. There is no custom Rust or Anchor progra
 
 Built by **[0xF1](https://fone.cc)**. More projects and writing at **[fone.cc](https://fone.cc)**. If you find this useful, a [Star on GitHub](https://github.com/fonecc/solana-token-manager) is appreciated.
 
+## Screenshots
+
+Learning workspace: course navigation and the Prepare → Act → Verify workflow.
+
+![Learning workspace: course navigation and the Prepare → Act → Verify workflow.](screenshots/learning-overview.png)
+
+Raydium pool lesson: prepare an OpenBook market before funding an AMM V4 pool.
+
+![Raydium pool lesson: prepare an OpenBook market before funding an AMM V4 pool.](screenshots/liquidity-pool-lesson.png)
+
+In-app manual: the Mint and ATA walkthrough in Simplified Chinese.
+
+![In-app manual: the Mint and ATA walkthrough in Simplified Chinese.](screenshots/mint-manual-zh-cn.png)
+
 ## What's included
 
 | Area | Implementation | Notes |
